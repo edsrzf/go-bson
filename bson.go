@@ -9,43 +9,29 @@ import (
 	"os"
 )
 
+// A Doc represents a BSON document.
 type Doc map[string]interface{}
 
 type ObjectId [12]byte
 
-func (o *ObjectId) MarshalBSON() (byte, []byte, os.Error) {
-	return 0x07, o[:], nil
-}
+func (o *ObjectId) MarshalBSON() (byte, []byte, os.Error) { return 0x07, o[:], nil }
 
-type Regex string
+type Regexp string
 
-func (r Regex) MarshalBSON() (byte, []byte, os.Error) {
-	return 0x0B, []byte(string(r)), nil
-}
+func (r Regexp) MarshalBSON() (byte, []byte, os.Error) { return 0x0B, []byte(string(r)), nil }
 
 type JavaScript string
 
-func (j JavaScript) MarshalBSON() (byte, []byte, os.Error) {
-	return 0x0D, []byte(string(j)), nil
-}
+func (j JavaScript) MarshalBSON() (byte, []byte, os.Error) { return 0x0D, []byte(string(j)), nil }
 
 type Symbol string
 
-func (s Symbol) MarshalBSON() (byte, []byte, os.Error) {
-	return 0x0E, []byte(string(s)), nil
-}
+func (s Symbol) MarshalBSON() (byte, []byte, os.Error) { return 0x0E, []byte(string(s)), nil }
 
-type MaxKey struct {
-}
+type MaxKey struct{}
 
-func (m MaxKey) MarshalBSON() (byte, []byte, os.Error) {
-	return 0x7F, nil, nil
-}
+func (m MaxKey) MarshalBSON() (byte, []byte, os.Error) { return 0x7F, nil, nil }
 
-type MinKey struct {
-}
+type MinKey struct{}
 
-func (m MinKey) MarshalBSON() (byte, []byte, os.Error) {
-	return 0xFF, nil, nil
-}
-
+func (m MinKey) MarshalBSON() (byte, []byte, os.Error) { return 0xFF, nil, nil }

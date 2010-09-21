@@ -147,7 +147,7 @@ func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 			e2.writeKeyVal(strconv.Itoa(i), v.Elem(i).Interface())
 		}
 		b := e2.Bytes()
-		binary.Write(e, order, int32(len(b) + 5))
+		binary.Write(e, order, int32(len(b)+5))
 		e.Write(b)
 		return e.WriteByte(0x00)
 	case *reflect.PtrValue:
@@ -213,4 +213,3 @@ func Marshal(v Doc) ([]byte, os.Error) {
 	}
 	return e.Bytes(), nil
 }
-

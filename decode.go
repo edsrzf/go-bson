@@ -53,7 +53,7 @@ func (d *decodeState) readString() (string, os.Error) {
 	}
 	s := string(b[:i])
 	// discard the bytes we used
-	d.Next(i+1)
+	d.Next(i + 1)
 	return s, nil
 }
 
@@ -68,7 +68,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		// string
 		var l int32
 		err := binary.Read(d, order, &l)
-		b := make([]byte, l - 1)
+		b := make([]byte, l-1)
 		d.Read(b)
 		// discard the null terminator
 		d.ReadByte()
@@ -122,12 +122,12 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		r, err := d.readString()
 		// discard options
 		d.readString()
-		return Regex(r), err
+		return Regexp(r), err
 	case 0x0D:
 		// javascript
 		var l int32
 		err := binary.Read(d, order, &l)
-		j := make([]byte, l - 1)
+		j := make([]byte, l-1)
 		d.Read(j)
 		d.ReadByte()
 		return JavaScript(j), err
@@ -135,7 +135,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		// symbol
 		var l int32
 		err := binary.Read(d, order, &l)
-		s := make([]byte, l - 1)
+		s := make([]byte, l-1)
 		d.Read(s)
 		d.ReadByte()
 		return Symbol(s), err

@@ -122,7 +122,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		r, err := d.readString()
 		// discard options
 		d.readString()
-		return Regexp(r), err
+		return &Regexp{Expr: r}, err
 	case 0x0D:
 		// javascript
 		var l int32

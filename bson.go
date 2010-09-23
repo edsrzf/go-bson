@@ -16,9 +16,25 @@ type ObjectId [12]byte
 
 func (o *ObjectId) MarshalBSON() (byte, []byte, os.Error) { return 0x07, o[:], nil }
 
-type Regexp string
+// Regexp represents a regular expression string. This structure is for encoding
+// purposes only and will not be parsed or executed by this package.
+type Regexp struct {
+	// Expr is the regular expression string itself.
+	Expr string
+	// Options is the options string. Valid options are:
+	//	i	Case insensitive matching
+	//	l	Make \w, \W, etc. locale-dependent
+	//	m	Multiline matching
+	//	s	Dotall mode
+	//	u	Make \w, \W, etc. match Unicode
+	//	x	Verbose mode
+	// Options must be specified in alphabetical order.
+	Options string
+}
 
-func (r Regexp) MarshalBSON() (byte, []byte, os.Error) { return 0x0B, []byte(string(r)), nil }
+func (r *Regexp) MarshalBSON() (byte, []byte, os.Error) {
+	return 0x0B, []byte(r.Expr + "\x00" + r.Options + "\x00"), nil
+}
 
 type JavaScript string
 

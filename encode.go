@@ -10,6 +10,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"time"
 )
 
 var order = binary.LittleEndian
@@ -91,6 +92,9 @@ func (e *encodeState) writeKeyVal(key string, val interface{}) os.Error {
 			return e.WriteByte(0x01)
 		}
 		return e.WriteByte(0x00)
+	case *time.Time:
+		e.writeBegin(0x09, key)
+		return binary.Write(e, order, v.Seconds())
 	case nil:
 		return e.writeBegin(0x0A, key)
 	case int8:

@@ -113,7 +113,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		// time
 		var t int64
 		err := binary.Read(d, order, &t)
-		return time.SecondsToLocalTime(t), err
+		return time.SecondsToUTC(t), err
 	case 0x0A:
 		// null
 		return nil, nil

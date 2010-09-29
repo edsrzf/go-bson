@@ -38,11 +38,21 @@ func (r *Regexp) MarshalBSON() (byte, []byte, os.Error) {
 
 type JavaScript string
 
-func (j JavaScript) MarshalBSON() (byte, []byte, os.Error) { return 0x0D, []byte(string(j)), nil }
+func (j JavaScript) MarshalBSON() (byte, []byte, os.Error) {
+	b := make([]byte, 4+len(j)+1)
+	order.PutUint32(b, uint32(len(j)+1))
+	copy(b[4:], []byte(string(j)))
+	return 0x0D, b, nil
+}
 
 type Symbol string
 
-func (s Symbol) MarshalBSON() (byte, []byte, os.Error) { return 0x0E, []byte(string(s)), nil }
+func (s Symbol) MarshalBSON() (byte, []byte, os.Error) {
+	b := make([]byte, 4+len(s)+1)
+	order.PutUint32(b, uint32(len(s)+1))
+	copy(b[4:], []byte(string(s)))
+	return 0x0E, b, nil
+}
 
 type MaxKey struct{}
 

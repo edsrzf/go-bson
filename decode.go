@@ -156,7 +156,6 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		// min key
 		return MinKey{}, nil
 	default:
-		println(kind)
 		panic("Unsupported type")
 	}
 	return nil, nil

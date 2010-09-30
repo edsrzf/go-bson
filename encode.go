@@ -137,11 +137,13 @@ func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 	case *reflect.MapValue:
 		e.writeBegin(0x03, key)
 		keys := v.Keys()
-		l := int32(len(keys))
-		binary.Write(e, order, l)
+		e2 := &encodeState{bytes.NewBuffer(nil)}
 		for i, k := range keys {
-			e.writeKeyVal(keys[i].Interface().(string), v.Elem(k).Interface())
+			e2.writeKeyVal(keys[i].Interface().(string), v.Elem(k).Interface())
 		}
+		b := e2.Bytes()
+		binary.Write(e, order, int32(len(b)+5))
+		e.Write(b)
 		return e.WriteByte(0x00)
 	case reflect.ArrayOrSliceValue:
 		e.writeBegin(0x04, key)

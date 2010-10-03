@@ -4,7 +4,7 @@
 
 include $(GOROOT)/src/Make.inc
 
-TARG=bson
+TARG=github.com/edsrzf/go-bson
 GOFILES=\
 	bson.go\
 	decode.go\

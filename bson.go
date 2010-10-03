@@ -6,6 +6,8 @@
 package bson
 
 import (
+	"bytes"
+	"encoding/binary"
 	"os"
 )
 
@@ -43,6 +45,28 @@ func (j JavaScript) MarshalBSON() (byte, []byte, os.Error) {
 	order.PutUint32(b, uint32(len(j)+1))
 	copy(b[4:], []byte(string(j)))
 	return 0x0D, b, nil
+}
+
+type JavaScriptWithScope struct {
+	Code JavaScript
+	Scope Doc
+}
+
+func (j *JavaScriptWithScope) MarshalBSON() (code byte, b []byte, err os.Error) {
+	scope, err := Marshal(j.Scope)
+	if err != nil {
+		return
+	}
+	size := 4 + 4 + len(j.Code) + 1 + len(scope)
+	b = make([]byte, 0, size)
+	buf := bytes.NewBuffer(b)
+	binary.Write(buf, order, uint32(size))
+	binary.Write(buf, order, uint32(len(j.Code)+1))
+	buf.WriteString(string(j.Code))
+	buf.WriteByte(0)
+	buf.Write(scope)
+	b = b[:size]
+	return 0x0F, b, nil
 }
 
 type Symbol string

@@ -29,7 +29,7 @@ func (d *decodeState) decodeDoc() (Doc, os.Error) {
 	kind, err := d.ReadByte()
 	for kind > 0 && err == nil {
 		var key string
-		key, err = d.readString()
+		key, err = d.readCString()
 		if err != nil {
 			break
 		}
@@ -45,7 +45,7 @@ func (d *decodeState) decodeDoc() (Doc, os.Error) {
 	return v, err
 }
 
-func (d *decodeState) readString() (string, os.Error) {
+func (d *decodeState) readCString() (string, os.Error) {
 	b := d.Bytes()
 	i := bytes.IndexByte(b, 0)
 	if i < 0 {
@@ -57,6 +57,19 @@ func (d *decodeState) readString() (string, os.Error) {
 	return s, nil
 }
 
+func (d *decodeState) readString() (string, os.Error) {
+	var l int32
+	err := binary.Read(d, order, &l)
+	if err != nil {
+		return "", err
+	}
+	b := make([]byte, l-1)
+	d.Read(b)
+	// discard null terminator
+	d.ReadByte()
+	return string(b), nil
+}
+
 func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 	switch kind {
 	case 0x01:
@@ -66,13 +79,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		return f, err
 	case 0x02:
 		// string
-		var l int32
-		err := binary.Read(d, order, &l)
-		b := make([]byte, l-1)
-		d.Read(b)
-		// discard the null terminator
-		d.ReadByte()
-		return string(b), err
+		return d.readString()
 	case 0x03:
 		// document
 		return d.decodeDoc()
@@ -119,26 +126,27 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		return nil, nil
 	case 0x0B:
 		// regex
-		r, err := d.readString()
+		r, err := d.readCString()
 		// discard options
-		d.readString()
+		d.readCString()
 		return &Regexp{Expr: r}, err
 	case 0x0D:
 		// javascript
-		var l int32
-		err := binary.Read(d, order, &l)
-		j := make([]byte, l-1)
-		d.Read(j)
-		d.ReadByte()
+		j, err := d.readString()
 		return JavaScript(j), err
 	case 0x0E:
 		// symbol
-		var l int32
-		err := binary.Read(d, order, &l)
-		s := make([]byte, l-1)
-		d.Read(s)
-		d.ReadByte()
+		s, err := d.readString()
 		return Symbol(s), err
+	case 0x0F:
+		// javascript w/ scope
+		d.Next(4)
+		code, err := d.readString()
+		if err != nil {
+			return nil, err
+		}
+		scope, err := d.decodeDoc()
+		return &JavaScriptWithScope{JavaScript(code), scope}, err
 	case 0x10:
 		// int32
 		var i int32

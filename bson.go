@@ -38,21 +38,22 @@ func (r *Regexp) MarshalBSON() (byte, []byte, os.Error) {
 	return 0x0B, []byte(r.Expr + "\x00" + r.Options + "\x00"), nil
 }
 
-type JavaScript string
-
-func (j JavaScript) MarshalBSON() (byte, []byte, os.Error) {
-	b := make([]byte, 4+len(j)+1)
-	order.PutUint32(b, uint32(len(j)+1))
-	copy(b[4:], []byte(string(j)))
-	return 0x0D, b, nil
-}
-
-type JavaScriptWithScope struct {
-	Code JavaScript
+type JavaScript struct {
+	Code  string
 	Scope Doc
 }
 
-func (j *JavaScriptWithScope) MarshalBSON() (code byte, b []byte, err os.Error) {
+func marshalCode(j string) (byte, []byte, os.Error) {
+	b := make([]byte, 4+len(j)+1)
+	order.PutUint32(b, uint32(len(j)+1))
+	copy(b[4:], []byte(j))
+	return 0x0D, b, nil
+}
+
+func (j *JavaScript) MarshalBSON() (code byte, b []byte, err os.Error) {
+	if j.Scope == nil {
+		return marshalCode(j.Code)
+	}
 	scope, err := Marshal(j.Scope)
 	if err != nil {
 		return

@@ -133,7 +133,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 	case 0x0D:
 		// javascript
 		j, err := d.readString()
-		return JavaScript(j), err
+		return &JavaScript{Code: j}, err
 	case 0x0E:
 		// symbol
 		s, err := d.readString()
@@ -146,7 +146,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 			return nil, err
 		}
 		scope, err := d.decodeDoc()
-		return &JavaScriptWithScope{JavaScript(code), scope}, err
+		return &JavaScript{code, scope}, err
 	case 0x10:
 		// int32
 		var i int32

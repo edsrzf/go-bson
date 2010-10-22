@@ -38,9 +38,10 @@ func (r *Regexp) MarshalBSON() (byte, []byte, os.Error) {
 	return 0x0B, []byte(r.Expr + "\x00" + r.Options + "\x00"), nil
 }
 
+// JavaScript represents JavaScript code.
 type JavaScript struct {
-	Code  string
-	Scope Doc
+	Code  string // code to execute
+	Scope Doc    // optional scope
 }
 
 func marshalCode(j string) (byte, []byte, os.Error) {

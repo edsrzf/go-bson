@@ -164,7 +164,11 @@ func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 		l := t.NumField()
 		for i := 0; i < l; i++ {
 			field := t.Field(i)
-			e.writeKeyVal(field.Name, v.Field(i).Interface())
+			name := field.Tag
+			if name == "" {
+				name = field.Name
+			}
+			e.writeKeyVal(name, v.Field(i).Interface())
 		}
 		return e.WriteByte(0x00)
 	}

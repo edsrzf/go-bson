@@ -1,9 +1,9 @@
 Go-BSON
 =======
 
-Go-BSON is BSON (http://bsonspec.org/) encoder and decoder package for the Go
-programming language (http://golang.org/). It is primarily intended to be used
-with Mongogo (edsrzf/mongogo).
+Go-BSON is a [BSON](http://bsonspec.org/) encoder and decoder package for the [Go
+programming language](http://golang.org/). It is primarily intended to be used
+with [Mongogo](edsrzf/mongogo).
 
 This project is still in development. It's not well tested, but the basics seem to
 work well enough.

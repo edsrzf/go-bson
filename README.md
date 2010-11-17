@@ -18,7 +18,7 @@ library changes.
 Usage
 -----
 
-Go-BSON has two main: one that encodes and one that decodes.
+Go-BSON has two main functions: one that encodes and one that decodes.
 
 Encode:
 
@@ -40,7 +40,8 @@ cannot be represented by Go types, including:
     Regexp
     Symbol
 
-See the documentation in the source for more information.
+Clients may create additional types that can be BSON-encoded by implementing
+the Marshaler interface. See the documentation in the source for more information.
 
 Contributing
 ------------

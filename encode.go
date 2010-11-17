@@ -31,7 +31,7 @@ type encodeState struct {
 	*bytes.Buffer
 }
 
-func (e *encodeState) marshal(v Doc) (err os.Error) {
+func (e *encodeState) marshal(v map[string]interface{}) (err os.Error) {
 	// write a value just to reserve some space
 	e.Write([]byte{0, 0, 0, 0})
 	for key, val := range v {
@@ -212,7 +212,7 @@ func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 //
 // BSON cannot represent cyclic data structures and Marshal cannot handle them.
 // Passing cyclic structures to Marshal will result in an infinite recursion.
-func Marshal(v Doc) ([]byte, os.Error) {
+func Marshal(v map[string]interface{}) ([]byte, os.Error) {
 	e := &encodeState{bytes.NewBuffer(nil)}
 	err := e.marshal(v)
 	if err != nil {

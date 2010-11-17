@@ -22,8 +22,8 @@ type decodeState struct {
 	*bytes.Buffer
 }
 
-func (d *decodeState) decodeDoc() (Doc, os.Error) {
-	v := make(Doc)
+func (d *decodeState) decodeDoc() (map[string]interface{}, os.Error) {
+	v := make(map[string]interface{})
 	// discard total length; it doesn't help us
 	d.Next(4)
 	kind, err := d.ReadByte()
@@ -173,7 +173,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 	return nil, nil
 }
 
-func Unmarshal(data []byte) (Doc, os.Error) {
+func Unmarshal(data []byte) (map[string]interface{}, os.Error) {
 	d := &decodeState{bytes.NewBuffer(data)}
 	return d.decodeDoc()
 }

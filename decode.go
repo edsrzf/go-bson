@@ -90,8 +90,12 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		var s vector.Vector
 		kind, err := d.ReadByte()
 		for kind > 0 && err == nil {
-			// discard key (always 1-byte string + null)
-			d.Next(2)
+			// discard key
+			n := byte(1)
+			for n != 0 {
+				n, _ = d.ReadByte()
+			}
+
 			var el interface{}
 			el, err = d.decodeElem(kind)
 			s.Push(el)

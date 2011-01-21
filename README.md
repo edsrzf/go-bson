@@ -6,13 +6,13 @@ programming language](http://golang.org/). It is primarily intended to be used
 with [Mongogo](mongogo).
 
 This project is still in development. It's been tested on Arch and Ubuntu Linux for
-the amd64 architecture, but there's no reason it shouldn't work on other architectures
+the amd64 architecture, but there's no reason it shouldn't work on other platforms
 as well.
 
 Dependencies
 ------------
 
-Go-BSON compiles with Go release 2010-10-27 or newer, barring any recent language or
+Go-BSON works with Go release 2011-01-20 or newer, barring any recent language or
 library changes.
 
 Usage

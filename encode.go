@@ -63,9 +63,6 @@ func (e *encodeState) writeKeyVal(key string, val interface{}) os.Error {
 		e.writeBegin(kind, key)
 		_, err = e.Write(b)
 		return err
-	case float:
-		e.writeBegin(0x01, key)
-		return binary.Write(e, order, float64(v))
 	case float32:
 		e.writeBegin(0x01, key)
 		return binary.Write(e, order, float64(v))

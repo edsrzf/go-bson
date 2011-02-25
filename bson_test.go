@@ -55,7 +55,8 @@ func TestMarshal(t *testing.T) {
 
 func TestUnmarshal(t *testing.T) {
 	for i, test := range bsonTests {
-		doc, err := Unmarshal(test.bson)
+		doc := make(map[string]interface{})
+		err := Unmarshal(test.bson, doc)
 		if err != nil {
 			t.Errorf("#%d error: %s", i, err.String())
 		}

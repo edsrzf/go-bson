@@ -9,6 +9,7 @@ import (
 	"container/vector"
 	"encoding/binary"
 	"os"
+	"reflect"
 	"time"
 )
 
@@ -22,8 +23,23 @@ type decodeState struct {
 	*bytes.Buffer
 }
 
-func (d *decodeState) decodeDoc() (map[string]interface{}, os.Error) {
-	v := make(map[string]interface{})
+func (d *decodeState) decodeDoc(v interface{}) os.Error {
+	val := reflect.NewValue(v)
+	switch v := val.(type) {
+	case *reflect.MapValue:
+		return d.decodeMapDoc(v)
+	case *reflect.StructValue:
+		return d.decodeStructDoc(v)
+	}
+	return nil
+}
+
+func (d *decodeState) decodeMapDoc(v *reflect.MapValue) os.Error {
+	_, stringKey := v.Type().(*reflect.MapType).Key().(*reflect.StringType)
+	if !stringKey {
+		panic("Not a string key type")
+	}
+	elType := v.Type().(*reflect.MapType).Elem()
 	// discard total length; it doesn't help us
 	d.Next(4)
 	kind, err := d.ReadByte()
@@ -39,10 +55,25 @@ func (d *decodeState) decodeDoc() (map[string]interface{}, os.Error) {
 		if err != nil {
 			break
 		}
-		v[key] = val
+		refVal := reflect.NewValue(val)
+		var vType reflect.Type
+		if refVal != nil {
+			vType = refVal.Type()
+		}
+		if elType != vType {
+			iVal := reflect.MakeZero(elType)
+			iVal.SetValue(refVal)
+			refVal = iVal
+			//_ = refVal.Type().(*reflect.InterfaceType)
+		}
+		v.SetElem(reflect.NewValue(key), refVal)
 		kind, err = d.ReadByte()
 	}
-	return v, err
+	return err
+}
+
+func (d *decodeState) decodeStructDoc(v *reflect.StructValue) os.Error {
+	return nil
 }
 
 func (d *decodeState) readCString() (string, os.Error) {
@@ -82,7 +113,9 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		return d.readString()
 	case 0x03:
 		// document
-		return d.decodeDoc()
+		m := make(map[string]interface{})
+		err := d.decodeDoc(m)
+		return m, err
 	case 0x04:
 		// array
 		// byte length doesn't help
@@ -149,7 +182,8 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		if err != nil {
 			return nil, err
 		}
-		scope, err := d.decodeDoc()
+		scope := make(map[string]interface{})
+		err = d.decodeDoc(scope)
 		return &JavaScript{code, scope}, err
 	case 0x10:
 		// int32
@@ -173,7 +207,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 	return nil, nil
 }
 
-func Unmarshal(data []byte) (map[string]interface{}, os.Error) {
+func Unmarshal(data []byte, v interface{}) (os.Error) {
 	d := &decodeState{bytes.NewBuffer(data)}
-	return d.decodeDoc()
+	return d.decodeDoc(v)
 }

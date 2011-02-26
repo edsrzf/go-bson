@@ -161,15 +161,8 @@ func (d *decodeState) decodeStructDoc(v *reflect.StructValue) os.Error {
 }
 
 func (d *decodeState) readCString() (string, os.Error) {
-	b := d.Bytes()
-	i := bytes.IndexByte(b, 0)
-	if i < 0 {
-		return "", DecodeError("unterminated string")
-	}
-	s := string(b[:i])
-	// discard the bytes we used
-	d.Next(i + 1)
-	return s, nil
+	s, err := d.ReadString(0)
+	return s[:len(s)-1], err
 }
 
 func (d *decodeState) readString() (string, os.Error) {

@@ -37,7 +37,7 @@ func (d *decodeState) decodeDoc(v interface{}) os.Error {
 func (d *decodeState) decodeMapDoc(v *reflect.MapValue) os.Error {
 	_, stringKey := v.Type().(*reflect.MapType).Key().(*reflect.StringType)
 	if !stringKey {
-		panic("Not a string key type")
+		return os.NewError("maps need a string key type")
 	}
 	elType := v.Type().(*reflect.MapType).Elem()
 	// discard total length; it doesn't help us

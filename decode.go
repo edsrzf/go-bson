@@ -6,7 +6,6 @@ package bson
 
 import (
 	"bytes"
-	"container/vector"
 	"encoding/binary"
 	"os"
 	"reflect"
@@ -197,7 +196,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 		// array
 		// byte length doesn't help
 		d.Next(4)
-		var s vector.Vector
+		var s []interface{}
 		kind, err := d.ReadByte()
 		for kind > 0 && err == nil {
 			// discard key
@@ -208,10 +207,10 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 
 			var el interface{}
 			el, err = d.decodeElem(kind)
-			s.Push(el)
+			s = append(s, el)
 			kind, err = d.ReadByte()
 		}
-		return []interface{}(s), err
+		return s, err
 	case 0x05:
 		// binary data
 		var l int32

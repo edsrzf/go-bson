@@ -160,23 +160,23 @@ const (
 )
 
 var lengths = []int32 {
-	0x01: 8,
-	0x02: lengthEncoded,
-	0x03: lengthEncodedMinus,
-	0x04: lengthEncodedMinus,
-	0x05: lengthEncodedPlus,
-	0x07: 12,
-	0x08: 1,
-	0x09: 8,
-	0x0A: 0,
-	0x0B: doubleNull,
-	0x0D: lengthEncoded,
-	0x0E: lengthEncoded,
-	0x0F: lengthEncodedMinus,
-	0x10: 4,
-	0x12: 8,
-	0x7F: 0,
-	0xFF: 0,
+	elFloat: 8,
+	elString: lengthEncoded,
+	elDoc: lengthEncodedMinus,
+	elArray: lengthEncodedMinus,
+	elBinary: lengthEncodedPlus,
+	elObjectID: 12,
+	elBool: 1,
+	elDatetime: 8,
+	elNull: 0,
+	elRegexp: doubleNull,
+	elJavaScript: lengthEncoded,
+	elSymbol: lengthEncoded,
+	elJavaScope: lengthEncodedMinus,
+	elInt32: 4,
+	elInt64: 8,
+	elMax: 0,
+	elMin: 0,
 }
 
 func (d *decodeState) readChunk() (kind byte, key string, b []byte) {
@@ -210,21 +210,17 @@ func (d *decodeState) readChunk() (kind byte, key string, b []byte) {
 
 func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 	switch kind {
-	case 0x01:
-		// float
+	case elFloat:
 		f := math.Float64frombits(order.Uint64(b))
 		return f
-	case 0x02:
-		// string
+	case elString:
 		return string(b[:len(b)-1])
-	case 0x03:
-		// document
+	case elDoc:
 		m := make(map[string]interface{})
 		d2 := &decodeState{bytes.NewBuffer(b)}
 		d2.decodeDoc(m)
 		return m
-	case 0x04:
-		// array
+	case elArray:
 		// byte length doesn't help
 		d2 := &decodeState{bytes.NewBuffer(b)}
 		var s []interface{}
@@ -236,43 +232,34 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 			kind, _, b = d2.readChunk()
 		}
 		return s
-	case 0x05:
-		// binary data
+	case elBinary:
 		// assuming binary/generic data; discarding actual kind
 		// TODO: consider making a copy of this data so that we won't
 		// be holding references to potentially large blocks of
 		// memory
 		return b[1:]
-	case 0x07:
-		// object ID
+	case elObjectID:
 		var o ObjectId
 		copy(o[:], b)
 		return &o
-	case 0x08:
-		// boolean
+	case elBool:
 		return b[0] != 0
-	case 0x09:
-		// time
+	case elDatetime:
 		t := int64(order.Uint64(b))
 		return time.SecondsToUTC(t)
-	case 0x0A:
-		// null
+	case elNull:
 		return nil
-	case 0x0B:
-		// regex
+	case elRegexp:
 		pos := bytes.IndexByte(b, 0)
 		// TODO: consider copying
 		r := string(b[:pos])
 		// discard options
 		return &Regexp{Expr: r}
-	case 0x0D:
-		// javascript
+	case elJavaScript:
 		return &JavaScript{Code: string(b[:len(b)-1])}
-	case 0x0E:
-		// symbol
+	case elSymbol:
 		return Symbol(b[:len(b)-1])
-	case 0x0F:
-		// javascript w/ scope
+	case elJavaScope:
 		d2 := &decodeState{bytes.NewBuffer(b)}
 		code := d2.readString()
 		// discard length
@@ -280,17 +267,13 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 		scope := make(map[string]interface{})
 		d2.decodeDoc(scope)
 		return &JavaScript{code, scope}
-	case 0x10:
-		// int32
+	case elInt32:
 		return int32(order.Uint32(b))
-	case 0x12:
-		// int64
+	case elInt64:
 		return int64(order.Uint64(b))
-	case 0x7F:
-		// max key
+	case elMax:
 		return MaxKey{}
-	case 0xFF:
-		// min key
+	case elMin:
 		return MinKey{}
 	default:
 		panic("unsupported type")

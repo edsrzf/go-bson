@@ -11,6 +11,30 @@ import (
 	"os"
 )
 
+// bson elements
+const (
+	elFloat = iota + 1
+	elString
+	elDoc
+	elArray
+	elBinary
+	_
+	elObjectID
+	elBool
+	elDatetime
+	elNull
+	elRegexp
+	_
+	elJavaScript
+	elSymbol
+	elJavaScope
+	elInt32
+	elTimestamp
+	elInt64
+	elMax = 0x7F
+	elMin = 0xFF
+)
+
 type ObjectId [12]byte
 
 func (o *ObjectId) MarshalBSON() (byte, []byte, os.Error) { return 0x07, o[:], nil }
@@ -45,7 +69,7 @@ func marshalCode(j string) (byte, []byte, os.Error) {
 	b := make([]byte, 4+len(j)+1)
 	order.PutUint32(b, uint32(len(j)+1))
 	copy(b[4:], []byte(j))
-	return 0x0D, b, nil
+	return elJavaScript, b, nil
 }
 
 func (j *JavaScript) MarshalBSON() (code byte, b []byte, err os.Error) {
@@ -65,7 +89,7 @@ func (j *JavaScript) MarshalBSON() (code byte, b []byte, err os.Error) {
 	buf.WriteByte(0)
 	buf.Write(scope)
 	b = b[:size]
-	return 0x0F, b, nil
+	return elJavaScope, b, nil
 }
 
 type Symbol string
@@ -74,13 +98,13 @@ func (s Symbol) MarshalBSON() (byte, []byte, os.Error) {
 	b := make([]byte, 4+len(s)+1)
 	order.PutUint32(b, uint32(len(s)+1))
 	copy(b[4:], []byte(string(s)))
-	return 0x0E, b, nil
+	return elSymbol, b, nil
 }
 
 type MaxKey struct{}
 
-func (m MaxKey) MarshalBSON() (byte, []byte, os.Error) { return 0x7F, nil, nil }
+func (m MaxKey) MarshalBSON() (byte, []byte, os.Error) { return elMax, nil, nil }
 
 type MinKey struct{}
 
-func (m MinKey) MarshalBSON() (byte, []byte, os.Error) { return 0xFF, nil, nil }
+func (m MinKey) MarshalBSON() (byte, []byte, os.Error) { return elMin, nil, nil }

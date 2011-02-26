@@ -94,19 +94,19 @@ func (e *encodeState) writeKeyVal(key string, val interface{}) os.Error {
 		_, err = e.Write(b)
 		return err
 	case float32:
-		e.writeBegin(0x01, key)
+		e.writeBegin(elFloat, key)
 		return binary.Write(e, order, float64(v))
 	case float64:
-		e.writeBegin(0x01, key)
+		e.writeBegin(elFloat, key)
 		return binary.Write(e, order, v)
 	case string:
-		e.writeBegin(0x02, key)
+		e.writeBegin(elString, key)
 		l := int32(len(v)) + 1
 		binary.Write(e, order, l)
 		e.WriteString(v)
 		return e.WriteByte(0x00)
 	case []byte:
-		e.writeBegin(0x05, key)
+		e.writeBegin(elBinary, key)
 		l := int32(len(v))
 		binary.Write(e, order, l)
 		// binary/generic subtype
@@ -114,16 +114,16 @@ func (e *encodeState) writeKeyVal(key string, val interface{}) os.Error {
 		_, err := e.Write(v)
 		return err
 	case bool:
-		e.writeBegin(0x08, key)
+		e.writeBegin(elBool, key)
 		if v {
 			return e.WriteByte(0x01)
 		}
 		return e.WriteByte(0x00)
 	case *time.Time:
-		e.writeBegin(0x09, key)
+		e.writeBegin(elDatetime, key)
 		return binary.Write(e, order, v.Seconds())
 	case nil:
-		return e.writeBegin(0x0A, key)
+		return e.writeBegin(elNull, key)
 	case int8:
 		return e.writeInt32(key, int32(v))
 	case uint8:
@@ -150,19 +150,19 @@ func (e *encodeState) writeKeyVal(key string, val interface{}) os.Error {
 }
 
 func (e *encodeState) writeInt32(key string, val int32) os.Error {
-	e.writeBegin(0x10, key)
+	e.writeBegin(elInt32, key)
 	return binary.Write(e, order, val)
 }
 
 func (e *encodeState) writeInt64(key string, val int64) os.Error {
-	e.writeBegin(0x12, key)
+	e.writeBegin(elInt64, key)
 	return binary.Write(e, order, val)
 }
 
 func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 	switch v := val.(type) {
 	case *reflect.MapValue:
-		e.writeBegin(0x03, key)
+		e.writeBegin(elDoc, key)
 		keys := v.Keys()
 		e2 := &encodeState{bytes.NewBuffer(nil)}
 		for i, k := range keys {
@@ -173,7 +173,7 @@ func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 		e.Write(b)
 		return e.WriteByte(0x00)
 	case reflect.ArrayOrSliceValue:
-		e.writeBegin(0x04, key)
+		e.writeBegin(elArray, key)
 		l := v.Len()
 		e2 := &encodeState{bytes.NewBuffer(nil)}
 		for i := 0; i < l; i++ {
@@ -186,7 +186,7 @@ func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 	case *reflect.PtrValue:
 		return e.writeKeyVal(key, v.Elem().Interface())
 	case *reflect.StructValue:
-		e.writeBegin(0x03, key)
+		e.writeBegin(elDoc, key)
 		t := v.Type().(*reflect.StructType)
 		l := t.NumField()
 		for i := 0; i < l; i++ {

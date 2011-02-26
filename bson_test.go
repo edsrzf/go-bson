@@ -12,10 +12,9 @@ import (
 )
 
 var bsonTests = []struct {
-	doc  map[string]interface{}
+	doc  interface{}
 	bson []byte
 }{
-	{nil, []byte("\x05\x00\x00\x00\x00")},
 	{map[string]interface{}{}, []byte("\x05\x00\x00\x00\x00")},
 	{map[string]interface{}{"test": float64(3.14159)}, []byte("\x13\x00\x00\x00\x01test\x00\x6E\x86\x1B\xF0\xF9\x21\x09\x40\x00")},
 	{map[string]interface{}{"hello": "world"}, []byte("\x16\x00\x00\x00\x02hello\x00\x06\x00\x00\x00world\x00\x00")},

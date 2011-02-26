@@ -10,8 +10,24 @@ import (
 	"encoding/binary"
 	"os"
 	"reflect"
+	"strings"
 	"time"
 )
+
+type InvalidUnmarshalError struct {
+	Type reflect.Type
+}
+
+func (e *InvalidUnmarshalError) String() string {
+	if e.Type == nil {
+		return "bson: Unmarshal(nil)"
+	}
+
+	if _, ok := e.Type.(*reflect.PtrType); !ok {
+		return "bson: Unmarshal(non-pointer " + e.Type.String() + ")"
+	}
+	return "bson: Unmarshal(nil " + e.Type.String() + ")"
+}
 
 type DecodeError string
 
@@ -25,21 +41,36 @@ type decodeState struct {
 
 func (d *decodeState) decodeDoc(v interface{}) os.Error {
 	val := reflect.NewValue(v)
-	switch v := val.(type) {
-	case *reflect.MapValue:
-		return d.decodeMapDoc(v)
-	case *reflect.StructValue:
-		return d.decodeStructDoc(v)
+	for {
+		switch v := val.(type) {
+		case *reflect.InterfaceValue:
+			if v.IsNil() {
+				return &InvalidUnmarshalError{v.Type()}
+			}
+			val = v.Elem()
+		case *reflect.MapValue:
+			return d.decodeMapDoc(v)
+		case *reflect.PtrValue:
+			if v.IsNil() {
+				return &InvalidUnmarshalError{v.Type()}
+			}
+			val = v.Elem()
+		case *reflect.StructValue:
+			return d.decodeStructDoc(v)
+		default:
+			return &InvalidUnmarshalError{val.Type()}
+		}
 	}
-	return nil
+	panic("unreachable")
 }
 
 func (d *decodeState) decodeMapDoc(v *reflect.MapValue) os.Error {
-	_, stringKey := v.Type().(*reflect.MapType).Key().(*reflect.StringType)
+	mapType := v.Type().(*reflect.MapType)
+	_, stringKey := mapType.Key().(*reflect.StringType)
 	if !stringKey {
 		return os.NewError("maps need a string key type")
 	}
-	elType := v.Type().(*reflect.MapType).Elem()
+	elType := mapType.Elem()
 	// discard total length; it doesn't help us
 	d.Next(4)
 	kind, err := d.ReadByte()
@@ -64,7 +95,6 @@ func (d *decodeState) decodeMapDoc(v *reflect.MapValue) os.Error {
 			iVal := reflect.MakeZero(elType)
 			iVal.SetValue(refVal)
 			refVal = iVal
-			//_ = refVal.Type().(*reflect.InterfaceType)
 		}
 		v.SetElem(reflect.NewValue(key), refVal)
 		kind, err = d.ReadByte()
@@ -73,7 +103,61 @@ func (d *decodeState) decodeMapDoc(v *reflect.MapValue) os.Error {
 }
 
 func (d *decodeState) decodeStructDoc(v *reflect.StructValue) os.Error {
-	return nil
+	st := v.Type().(*reflect.StructType)
+	// discard total length; it doesn't help us
+	d.Next(4)
+	kind, err := d.ReadByte()
+	for kind > 0 && err == nil {
+		var key string
+		key, err = d.readCString()
+		if err != nil {
+			break
+		}
+
+		var val interface{}
+		val, err = d.decodeElem(kind)
+		if err != nil {
+			break
+		}
+
+		var fieldVal reflect.Value
+		var f reflect.StructField
+		found := false
+		for i := 0; i < st.NumField(); i++ {
+			f = st.Field(i)
+			if f.Tag == key {
+				found = true
+				break
+			}
+		}
+		if !found {
+			f, found = st.FieldByName(key)
+		}
+		if !found {
+			lowKey := strings.ToLower(key)
+			f, found = st.FieldByNameFunc(func(s string) bool { return lowKey == strings.ToLower(s) })
+		}
+		if found {
+			fieldVal = v.FieldByIndex(f.Index)
+		} else {
+			continue
+		}
+
+		refVal := reflect.NewValue(val)
+		var vType reflect.Type
+		if refVal != nil {
+			vType = refVal.Type()
+		}
+		fieldType := fieldVal.Type()
+		if fieldType != vType {
+			switch fieldType.(type) {
+			case *reflect.InterfaceType:
+			}
+		}
+		fieldVal.SetValue(refVal)
+		kind, err = d.ReadByte()
+	}
+	return err
 }
 
 func (d *decodeState) readCString() (string, os.Error) {
@@ -207,7 +291,7 @@ func (d *decodeState) decodeElem(kind byte) (interface{}, os.Error) {
 	return nil, nil
 }
 
-func Unmarshal(data []byte, v interface{}) (os.Error) {
+func Unmarshal(data []byte, v interface{}) os.Error {
 	d := &decodeState{bytes.NewBuffer(data)}
 	return d.decodeDoc(v)
 }

@@ -35,7 +35,8 @@ func (e *encodeState) marshal(v interface{}) (err os.Error) {
 	// write a value just to reserve some space
 	e.Write([]byte{0, 0, 0, 0})
 	rval := reflect.NewValue(v)
-	unboxing: for {
+unboxing:
+	for {
 		switch v := rval.(type) {
 		case *reflect.InterfaceValue:
 			rval = v.Elem()

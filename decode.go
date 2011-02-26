@@ -48,7 +48,8 @@ func (d *decodeState) error(err os.Error) {
 
 func (d *decodeState) decodeDoc(v interface{}) {
 	val := reflect.NewValue(v)
-	unboxing: for {
+unboxing:
+	for {
 		switch v := val.(type) {
 		case *reflect.InterfaceValue:
 			if v.IsNil() {
@@ -149,34 +150,34 @@ func (d *decodeState) readString() string {
 	b := make([]byte, l)
 	d.Read(b)
 	// discard null terminator
-	return string(b[:l - 1])
+	return string(b[:l-1])
 }
 
 const (
-	doubleNull = -1
+	doubleNull         = -1
 	lengthEncodedMinus = -2
-	lengthEncoded = -6
-	lengthEncodedPlus = -7
+	lengthEncoded      = -6
+	lengthEncodedPlus  = -7
 )
 
-var lengths = []int32 {
-	elFloat: 8,
-	elString: lengthEncoded,
-	elDoc: lengthEncodedMinus,
-	elArray: lengthEncodedMinus,
-	elBinary: lengthEncodedPlus,
-	elObjectID: 12,
-	elBool: 1,
-	elDatetime: 8,
-	elNull: 0,
-	elRegexp: doubleNull,
+var lengths = []int32{
+	elFloat:      8,
+	elString:     lengthEncoded,
+	elDoc:        lengthEncodedMinus,
+	elArray:      lengthEncodedMinus,
+	elBinary:     lengthEncodedPlus,
+	elObjectID:   12,
+	elBool:       1,
+	elDatetime:   8,
+	elNull:       0,
+	elRegexp:     doubleNull,
 	elJavaScript: lengthEncoded,
-	elSymbol: lengthEncoded,
-	elJavaScope: lengthEncodedMinus,
-	elInt32: 4,
-	elInt64: 8,
-	elMax: 0,
-	elMin: 0,
+	elSymbol:     lengthEncoded,
+	elJavaScope:  lengthEncodedMinus,
+	elInt32:      4,
+	elInt64:      8,
+	elMax:        0,
+	elMin:        0,
 }
 
 func (d *decodeState) readChunk() (kind byte, key string, b []byte) {
@@ -198,7 +199,7 @@ func (d *decodeState) readChunk() (kind byte, key string, b []byte) {
 		// length-encoded with a possible offset
 		var l int32
 		binary.Read(d, order, &l)
-		b = make([]byte, l + (lengthEncoded - n))
+		b = make([]byte, l+lengthEncoded-n)
 		d.Read(b)
 	case n == 0:
 	default:

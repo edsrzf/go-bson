@@ -6,7 +6,6 @@ package bson
 
 import (
 	"bytes"
-	"encoding/binary"
 	"math"
 	"os"
 	"reflect"
@@ -37,7 +36,8 @@ func (e DecodeError) String() string {
 }
 
 type decodeState struct {
-	*bytes.Buffer
+	b []byte
+	r int
 }
 
 func (d *decodeState) error(err os.Error) {
@@ -138,19 +138,22 @@ func (d *decodeState) decodeStructDoc(v *reflect.StructValue) {
 }
 
 func (d *decodeState) readCString() string {
-	s, err := d.ReadString(0)
-	d.error(err)
-	return s[:len(s)-1]
+	pos := bytes.IndexByte(d.b[d.r:], 0)
+	if pos < 0 {
+		panic("unterminated C string")
+	}
+	end := d.r + pos
+	s := string(d.b[d.r:end])
+	d.r = end + 1
+	return s
 }
 
 func (d *decodeState) readString() string {
-	var l int32
-	err := binary.Read(d, order, &l)
-	d.error(err)
-	b := make([]byte, l)
-	d.Read(b)
-	// discard null terminator
-	return string(b[:l-1])
+	l := int(order.Uint32(d.b[d.r:]))
+	d.r += 4
+	s := string(d.b[d.r : d.r+l-1])
+	d.r += l
+	return s
 }
 
 const (
@@ -160,7 +163,7 @@ const (
 	lengthEncodedPlus  = -7
 )
 
-var lengths = []int32{
+var lengths = []int{
 	elFloat:      8,
 	elString:     lengthEncoded,
 	elDoc:        lengthEncodedMinus,
@@ -181,8 +184,8 @@ var lengths = []int32{
 }
 
 func (d *decodeState) readChunk() (kind byte, key string, b []byte) {
-	kind, err := d.ReadByte()
-	d.error(err)
+	kind = d.b[d.r]
+	d.r++
 	if kind == 0 {
 		return
 	}
@@ -190,21 +193,25 @@ func (d *decodeState) readChunk() (kind byte, key string, b []byte) {
 	key = d.readCString()
 	switch n := lengths[kind]; {
 	case n == doubleNull:
-		s1, err := d.ReadString(0)
-		d.error(err)
-		s2, err := d.ReadString(0)
-		d.error(err)
-		b = []byte(s1 + s2)
+		start := d.r
+		pos := bytes.IndexByte(d.b[d.r:], 0)
+		d.r += pos + 1
+		pos = bytes.IndexByte(d.b[d.r:], 0)
+		end := d.r + pos + 1
+		b = d.b[start:end]
+		d.r = end
 	case n < 0:
 		// length-encoded with a possible offset
-		var l int32
-		binary.Read(d, order, &l)
-		b = make([]byte, l+lengthEncoded-n)
-		d.Read(b)
+		l := int(order.Uint32(d.b[d.r:]))
+		d.r += 4
+		end := d.r + l + lengthEncoded - n
+		b = d.b[d.r:end]
+		d.r = end
 	case n == 0:
 	default:
-		b = make([]byte, n)
-		d.Read(b)
+		end := d.r + n
+		b = d.b[d.r:end]
+		d.r = end
 	}
 	return
 }
@@ -218,12 +225,12 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 		return string(b[:len(b)-1])
 	case elDoc:
 		m := make(map[string]interface{})
-		d2 := &decodeState{bytes.NewBuffer(b)}
+		d2 := &decodeState{b: b}
 		d2.decodeDoc(m)
 		return m
 	case elArray:
 		// byte length doesn't help
-		d2 := &decodeState{bytes.NewBuffer(b)}
+		d2 := &decodeState{b: b}
 		var s []interface{}
 		kind, _, b := d2.readChunk()
 		for kind > 0 {
@@ -252,7 +259,6 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 		return nil
 	case elRegexp:
 		pos := bytes.IndexByte(b, 0)
-		// TODO: consider copying
 		r := string(b[:pos])
 		// discard options
 		return &Regexp{Expr: r}
@@ -261,10 +267,10 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 	case elSymbol:
 		return Symbol(b[:len(b)-1])
 	case elJavaScope:
-		d2 := &decodeState{bytes.NewBuffer(b)}
+		d2 := &decodeState{b: b}
 		code := d2.readString()
 		// discard length
-		d2.Next(4)
+		d2.r += 4
 		scope := make(map[string]interface{})
 		d2.decodeDoc(scope)
 		return &JavaScript{code, scope}
@@ -298,9 +304,8 @@ func Unmarshal(data []byte, v interface{}) (err os.Error) {
 		}
 	}()
 
-	d := &decodeState{bytes.NewBuffer(data)}
 	// discard doc length -- it doesn't help
-	d.Next(4)
+	d := &decodeState{b: data[4:]}
 	d.decodeDoc(v)
 	return
 }

@@ -22,13 +22,26 @@ Go-BSON has two main functions: one that encodes and one that decodes.
 
 Encode:
 
-    doc := bson.Doc{"hello": "world"}
+    doc := map[string]string{"hello": "world"}
     data, err := bson.Marshal(doc)
+    doc2 := struct{Key string}{"value"}
+    data2, err := bson.Marshal(&doc2)
+
+You can treat either a struct or a map with a string key type as a document.
 
 Decode:
 
     // data is a []byte value that contains BSON data
-    doc, err := bson.Unmarshal(data)
+    doc1 := map[string]interface{}
+    err := bson.Unmarshal(data, doc1)
+
+    // or, if you have an idea of the data's structure...
+    type doc struct {
+        Name string
+        ID   int
+    }
+    doc2 := new(doc)
+    err = bson.Unmarshal(data, doc2)
 
 The package also provides some types that allow encoding of BSON data that
 cannot be represented by Go types, including:
@@ -36,7 +49,7 @@ cannot be represented by Go types, including:
     JavaScript
     MaxKey
     MinKey
-    ObjectId
+    ObjectID
     Regexp
     Symbol
 

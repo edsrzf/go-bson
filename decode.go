@@ -46,8 +46,7 @@ func (d *decodeState) error(err os.Error) {
 	}
 }
 
-func (d *decodeState) decodeDoc(v interface{}) {
-	val := reflect.NewValue(v)
+func (d *decodeState) decodeDoc(val reflect.Value) {
 unboxing:
 	for {
 		switch v := val.(type) {
@@ -57,6 +56,10 @@ unboxing:
 			}
 			val = v.Elem()
 		case *reflect.MapValue:
+			if v.IsNil() {
+				mt := v.Type().(*reflect.MapType)
+				v.Set(reflect.MakeMap(mt))
+			}
 			d.decodeMapDoc(v)
 			break unboxing
 		case *reflect.PtrValue:
@@ -83,19 +86,10 @@ func (d *decodeState) decodeMapDoc(v *reflect.MapValue) {
 
 	kind, key, b := d.readChunk()
 	for kind > 0 {
-		val := d.decodeElem(kind, b)
+		val := reflect.MakeZero(elType)
+		d.decodeElem(kind, b, val)
 
-		refVal := reflect.NewValue(val)
-		var vType reflect.Type
-		if refVal != nil {
-			vType = refVal.Type()
-		}
-		if elType != vType {
-			iVal := reflect.MakeZero(elType)
-			iVal.SetValue(refVal)
-			refVal = iVal
-		}
-		v.SetElem(reflect.NewValue(key), refVal)
+		v.SetElem(reflect.NewValue(key), val)
 		kind, key, b = d.readChunk()
 	}
 }
@@ -105,8 +99,6 @@ func (d *decodeState) decodeStructDoc(v *reflect.StructValue) {
 
 	kind, key, b := d.readChunk()
 	for kind > 0 {
-		val := d.decodeElem(kind, b)
-
 		var fieldVal reflect.Value
 		var f reflect.StructField
 		found := false
@@ -126,12 +118,8 @@ func (d *decodeState) decodeStructDoc(v *reflect.StructValue) {
 		}
 		if found {
 			fieldVal = v.FieldByIndex(f.Index)
-		} else {
-			continue
+			d.decodeElem(kind, b, fieldVal)
 		}
-
-		refVal := reflect.NewValue(val)
-		fieldVal.SetValue(refVal)
 
 		kind, key, b = d.readChunk()
 	}
@@ -216,7 +204,183 @@ func (d *decodeState) readChunk() (kind byte, key string, b []byte) {
 	return
 }
 
-func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
+func (d *decodeState) decodeElem(kind byte, b []byte, val reflect.Value) {
+	iv, ok := val.(*reflect.InterfaceValue)
+	if ok {
+		iv.Set(reflect.NewValue(d.decodeElemInterface(kind, b)))
+		return
+	}
+
+	switch kind {
+	case elFloat:
+		f := math.Float64frombits(order.Uint64(b))
+		fv, ok := val.(*reflect.FloatValue)
+		if !ok {
+			goto error
+		}
+		fv.Set(f)
+	case elString:
+		s := string(b[:len(b)-1])
+		sv, ok := val.(*reflect.StringValue)
+		if !ok {
+			goto error
+		}
+		sv.Set(s)
+	case elDoc:
+		d2 := &decodeState{b: b}
+		d2.decodeDoc(val)
+	case elArray:
+		// byte length doesn't help
+		sv, ok := val.(*reflect.SliceValue)
+		if !ok {
+			goto error
+		}
+		elType := sv.Type().(*reflect.SliceType).Elem()
+		d2 := &decodeState{b: b}
+		kind, _, b := d2.readChunk()
+		for kind > 0 {
+			el := reflect.MakeZero(elType)
+			d2.decodeElem(kind, b, el)
+			sv = reflect.Append(sv, el)
+			kind, _, b = d2.readChunk()
+		}
+	case elBinary:
+		sv, ok := val.(*reflect.SliceValue)
+		if !ok {
+			goto error
+		}
+		bv := reflect.NewValue(b[1:])
+		sliceType := sv.Type().(*reflect.SliceType)
+		if sliceType != bv.Type() {
+			goto error
+		}
+		sv.SetValue(bv)
+	case elObjectID:
+		var o ObjectID
+		copy(o[:], b)
+		ov := reflect.NewValue(&o)
+		if val.Type() != ov.Type() {
+			goto error
+		}
+		val.SetValue(ov)
+	case elBool:
+		bv := reflect.NewValue(b[0] != 0)
+		if val.Type() != bv.Type() {
+			goto error
+		}
+		val.SetValue(bv)
+	case elDatetime:
+		t := int64(order.Uint64(b))
+		tv := reflect.NewValue(time.SecondsToUTC(t))
+		if val.Type() != tv.Type() {
+			goto error
+		}
+		val.SetValue(tv)
+	case elNull:
+		type nillable interface {
+			IsNil() bool
+		}
+		_, canNil := val.(nillable)
+		if !canNil {
+			goto error
+		}
+		val.SetValue(reflect.MakeZero(val.Type()))
+	case elRegexp:
+		pos := bytes.IndexByte(b, 0)
+		r := string(b[:pos])
+		// discard options
+		rv := reflect.NewValue(&Regexp{Expr: r})
+		if val.Type() != rv.Type() {
+			goto error
+		}
+		val.SetValue(rv)
+	case elJavaScript:
+		j := &JavaScript{Code: string(b[:len(b)-1])}
+		jv := reflect.NewValue(j)
+		if val.Type() != jv.Type() {
+			goto error
+		}
+		val.SetValue(jv)
+	case elSymbol:
+		s := string(b[:len(b)-1])
+		sv, ok := val.(*reflect.StringValue)
+		if !ok {
+			goto error
+		}
+		sv.Set(s)
+	case elJavaScope:
+		d2 := &decodeState{b: b}
+		code := d2.readString()
+		// discard length
+		d2.r += 4
+		scope := make(map[string]interface{})
+		d2.decodeDoc(reflect.NewValue(scope))
+		j := &JavaScript{code, scope}
+		jv := reflect.NewValue(j)
+		if val.Type() != jv.Type() {
+			goto error
+		}
+		val.SetValue(jv)
+	case elInt32:
+		n := order.Uint32(b)
+		switch v := val.(type) {
+		case *reflect.FloatValue:
+			n := float64(n)
+			v.Set(n)
+		case *reflect.IntValue:
+			n := int64(n)
+			if v.Overflow(n) {
+				goto error
+			}
+			v.Set(n)
+		case *reflect.UintValue:
+			n := uint64(n)
+			if v.Overflow(n) {
+				goto error
+			}
+			v.Set(n)
+		}
+	case elInt64:
+		n := order.Uint64(b)
+		switch v := val.(type) {
+		case *reflect.FloatValue:
+			n := float64(n)
+			v.Set(n)
+		case *reflect.IntValue:
+			n := int64(n)
+			if v.Overflow(n) {
+				goto error
+			}
+			v.Set(n)
+		case *reflect.UintValue:
+			n := uint64(n)
+			if v.Overflow(n) {
+				goto error
+			}
+			v.Set(n)
+		}
+	case elMax:
+		m := MaxKey{}
+		mv := reflect.NewValue(m)
+		if val.Type() != mv.Type() {
+			goto error
+		}
+		val.SetValue(mv)
+	case elMin:
+		m := MinKey{}
+		mv := reflect.NewValue(m)
+		if val.Type() != mv.Type() {
+			goto error
+		}
+		val.SetValue(mv)
+	}
+	return
+
+error:
+	panic("invalid type for decoding")
+}
+
+func (d *decodeState) decodeElemInterface(kind byte, b []byte) interface{} {
 	switch kind {
 	case elFloat:
 		f := math.Float64frombits(order.Uint64(b))
@@ -226,7 +390,7 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 	case elDoc:
 		m := make(map[string]interface{})
 		d2 := &decodeState{b: b}
-		d2.decodeDoc(m)
+		d2.decodeDoc(reflect.NewValue(m))
 		return m
 	case elArray:
 		// byte length doesn't help
@@ -234,8 +398,7 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 		var s []interface{}
 		kind, _, b := d2.readChunk()
 		for kind > 0 {
-			var el interface{}
-			el = d2.decodeElem(kind, b)
+			el := d2.decodeElemInterface(kind, b)
 			s = append(s, el)
 			kind, _, b = d2.readChunk()
 		}
@@ -247,7 +410,7 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 		// memory
 		return b[1:]
 	case elObjectID:
-		var o ObjectId
+		var o ObjectID
 		copy(o[:], b)
 		return &o
 	case elBool:
@@ -272,7 +435,7 @@ func (d *decodeState) decodeElem(kind byte, b []byte) interface{} {
 		// discard length
 		d2.r += 4
 		scope := make(map[string]interface{})
-		d2.decodeDoc(scope)
+		d2.decodeDoc(reflect.NewValue(scope))
 		return &JavaScript{code, scope}
 	case elInt32:
 		return int32(order.Uint32(b))
@@ -306,6 +469,6 @@ func Unmarshal(data []byte, v interface{}) (err os.Error) {
 
 	// discard doc length -- it doesn't help
 	d := &decodeState{b: data[4:]}
-	d.decodeDoc(v)
+	d.decodeDoc(reflect.NewValue(v))
 	return
 }

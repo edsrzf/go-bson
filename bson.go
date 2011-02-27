@@ -29,15 +29,15 @@ const (
 	elSymbol
 	elJavaScope
 	elInt32
-	elTimestamp
+	_
 	elInt64
 	elMax = 0x7F
 	elMin = 0xFF
 )
 
-type ObjectId [12]byte
+type ObjectID [12]byte
 
-func (o *ObjectId) MarshalBSON() (byte, []byte, os.Error) { return 0x07, o[:], nil }
+func (o *ObjectID) MarshalBSON() (byte, []byte, os.Error) { return 0x07, o[:], nil }
 
 // Regexp represents a regular expression string. This structure is for encoding
 // purposes only and will not be parsed or executed by this package.

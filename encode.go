@@ -185,6 +185,9 @@ func (e *encodeState) writeReflect(key string, val reflect.Value) os.Error {
 		e.Write(b)
 		return e.WriteByte(0x00)
 	case *reflect.PtrValue:
+		if v.IsNil() {
+			return e.writeBegin(elNull, key)
+		}
 		return e.writeKeyVal(key, v.Elem().Interface())
 	case *reflect.StructValue:
 		e.writeBegin(elDoc, key)

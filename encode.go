@@ -35,38 +35,27 @@ func (e *encodeState) marshal(v interface{}) (err os.Error) {
 	// write a value just to reserve some space
 	e.Write([]byte{0, 0, 0, 0})
 	rval := reflect.NewValue(v)
-unboxing:
-	for {
-		switch v := rval.(type) {
-		case *reflect.InterfaceValue:
-			rval = v.Elem()
-		case *reflect.MapValue:
-			keys := v.Keys()
-			for _, rkey := range keys {
-				key := rkey.Interface().(string)
-				val := v.Elem(rkey)
-				e.writeKeyVal(key, val.Interface())
-			}
-			break unboxing
-		case *reflect.PtrValue:
-			rval = v.Elem()
-		case *reflect.StructValue:
-			t := rval.Type().(*reflect.StructType)
-			for i := 0; i < t.NumField(); i++ {
-				field := t.Field(i)
-				/*if field.Anonymous {
-					continue
-				}*/
-				key := field.Tag
-				if key == "" {
-					key = field.Name
-				}
-				e.writeKeyVal(key, v.Field(i).Interface())
-			}
-			break unboxing
-		default:
-			panic("invalid type")
+	rval = indirect(rval)
+	switch v := rval.(type) {
+	case *reflect.MapValue:
+		keys := v.Keys()
+		for _, rkey := range keys {
+			key := rkey.Interface().(string)
+			val := v.Elem(rkey)
+			e.writeKeyVal(key, val.Interface())
 		}
+	case *reflect.StructValue:
+		t := rval.Type().(*reflect.StructType)
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			key := field.Tag
+			if key == "" {
+				key = field.Name
+			}
+			e.writeKeyVal(key, v.Field(i).Interface())
+		}
+	default:
+		panic("invalid type")
 	}
 	// terminate the element list
 	e.WriteByte(0x00)

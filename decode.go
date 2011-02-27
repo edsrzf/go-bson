@@ -46,33 +46,39 @@ func (d *decodeState) error(err os.Error) {
 	}
 }
 
-func (d *decodeState) decodeDoc(val reflect.Value) {
-unboxing:
+func indirect(val reflect.Value) reflect.Value {
 	for {
 		switch v := val.(type) {
 		case *reflect.InterfaceValue:
 			if v.IsNil() {
-				d.error(&InvalidUnmarshalError{v.Type()})
+				panic(&InvalidUnmarshalError{v.Type()})
 			}
 			val = v.Elem()
-		case *reflect.MapValue:
-			if v.IsNil() {
-				mt := v.Type().(*reflect.MapType)
-				v.Set(reflect.MakeMap(mt))
-			}
-			d.decodeMapDoc(v)
-			break unboxing
 		case *reflect.PtrValue:
 			if v.IsNil() {
-				d.error(&InvalidUnmarshalError{v.Type()})
+				panic(&InvalidUnmarshalError{v.Type()})
 			}
 			val = v.Elem()
-		case *reflect.StructValue:
-			d.decodeStructDoc(v)
-			break unboxing
 		default:
-			d.error(&InvalidUnmarshalError{val.Type()})
+			return val
 		}
+	}
+	panic("unreachable")
+}
+
+func (d *decodeState) decodeDoc(val reflect.Value) {
+	val = indirect(val)
+	switch v := val.(type) {
+	case *reflect.MapValue:
+		if v.IsNil() {
+			mt := v.Type().(*reflect.MapType)
+			v.Set(reflect.MakeMap(mt))
+		}
+		d.decodeMapDoc(v)
+	case *reflect.StructValue:
+		d.decodeStructDoc(v)
+	default:
+		d.error(&InvalidUnmarshalError{val.Type()})
 	}
 }
 

@@ -271,7 +271,7 @@ func (d *decodeState) decodeElem(kind byte, b []byte, val reflect.Value) {
 		val.SetValue(ov)
 	case elBool:
 		bv := reflect.NewValue(b[0] != 0)
-		if val.Type() != bv.Type() {
+		if val.Type().Kind() != reflect.Bool {
 			goto error
 		}
 		val.SetValue(bv)

@@ -127,6 +127,9 @@ func (e *encodeState) writeKeyVal(key string, val interface{}) os.Error {
 	case uint32:
 		return e.writeInt32(key, int32(v))
 	case int:
+		if int(int32(int(v))) == v {
+			return e.writeInt32(key, int32(v))
+		}
 		return e.writeInt64(key, int64(v))
 	case uint:
 		return e.writeInt64(key, int64(v))

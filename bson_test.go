@@ -6,6 +6,7 @@ package bson
 
 import (
 	"bytes"
+	//"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -100,6 +101,137 @@ func TestUnmarshal(t *testing.T) {
 		}
 		if !reflect.DeepEqual(test.doc, doc) {
 			t.Errorf("#%d expected\n%+v\ngot\n%+v", i, test.doc, doc)
+		}
+	}
+}
+
+func BenchmarkLargeMapEncode(b *testing.B) {
+	b.StopTimer()
+	media := map[string]interface{} {
+		"uri": "http://javaone.com/keynote.mpg",
+		"title": "Javaone Keynote",
+		"width": 640,
+		"height": 480,
+		"format": "video/mpg4",
+		"duration": 18000000,
+		"size": 58982400,
+		"bitrate": 262144,
+		"persons": []string{"Bill Gates", "Steve Jobs"},
+		"player": "JAVA",
+		"copyright": nil,
+	}
+	images := []map[string]interface{} {
+		{
+			"uri": "http://javaone.com/keynote_large.jpg",
+			"title": "Javaone Keynote",
+			"width": 1024,
+			"height": 768,
+			"large": true,
+		},
+		{
+			"uri": "http://javaone.com/keynote_small.jpg",
+			"title": "Javaone Keynote",
+			"width": 320,
+			"height": 240,
+			"large": false,
+		},
+	}
+	doc := map[string]interface{}{"media": media, "images": images}
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := Marshal(doc)
+		if err != nil {
+			panic(err.String())
+		}
+	}
+}
+
+/*func BenchmarkSmallMapEncode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+	}
+}*/
+
+type mediaType struct {
+	Uri string "uri"
+	Title string "title"
+	W int "width"
+	H int "height"
+	Format string "format"
+	Dur int "duration"
+	Size int "size"
+	Bitrate int "bitrate"
+	Persons []string "persons"
+	Player string "player"
+	Copyright *string "copyright"
+}
+type imageType struct {
+	Uri string "uri"
+	Title string "title"
+	W int "width"
+	H int "height"
+	Large bool "large"
+}
+type docType struct {
+	Media mediaType "media"
+	Images []imageType "images"
+}
+
+func BenchmarkLargeStructEncode(b *testing.B) {
+	media := mediaType{
+		"http://javaone.com/keynote.mpg",
+		"Javaone Keynote",
+		640, 480,
+		"video/mpg4",
+		18000000,
+		58982400,
+		262144,
+		[]string{"Bill Gates", "Steve Jobs"},
+		"JAVA", nil,
+	}
+	images := []imageType{
+		{
+			"http://javaone.com/keynote_large.jpg",
+			"Javaone Keynote",
+			1024, 768, true,
+		},
+		{
+			"http://javaone.com/keynote_small.jpg",
+			"Javaone Keynote",
+			320, 240, false,
+		},
+	}
+	doc := &docType{media, images}
+	for i := 0; i < b.N; i++ {
+		_, err := Marshal(doc)
+		if err != nil {
+			panic(err.String())
+		}
+	}
+}
+
+/*func BenchmarkSmallStructEncode(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+	}
+}*/
+
+var encodedBson = []byte("\xe2\x01\x00\x00\x03media\x00\xe9\x00\x00\x00\x02format\x00\v\x00\x00\x00video/mpg4\x00\x10bitrate\x00\x00\x00\x84\x03\ncopyright\x00\x02player\x00\x05\x00\x00\x00JAVA\x00\x10height\x00\xe0\x01\x00\x00\x10width\x00\x80\x02\x00\x00\x02uri\x00\x1f\x00\x00\x00http://javaone.com/keynote.mpg\x00\x02title\x00\x10\x00\x00\x00Javaone Keynote\x00\x10duration\x00\x80\xa8\x12\x01\x04persons\x00)\x00\x00\x00\x020\x00\v\x00\x00\x00Bill Gates\x00\x021\x00\v\x00\x00\x00Steve Jobs\x00\x00\x10size\x00\x00\x00\x84\x03\x00\x04images\x00\xe5\x00\x00\x00\x030\x00m\x00\x00\x00\blarge\x00\x01\x10height\x00\x00\x03\x00\x00\x10width\x00\x00\x04\x00\x00\x02uri\x00%\x00\x00\x00http://javaone.com/keynote_large.jpg\x00\x02title\x00\x10\x00\x00\x00Javaone Keynote\x00\x00\x031\x00m\x00\x00\x00\blarge\x00\x00\x10height\x00\xf0\x00\x00\x00\x10width\x00@\x01\x00\x00\x02uri\x00%\x00\x00\x00http://javaone.com/keynote_small.jpg\x00\x02title\x00\x10\x00\x00\x00Javaone Keynote\x00\x00\x00\x00")
+
+func BenchmarkLargeMapDecode(b *testing.B) {
+	doc := map[string]interface{}{}
+	for i := 0; i < b.N; i++ {
+		err := Unmarshal(encodedBson, doc)
+		if err != nil {
+			panic(err.String())
+		}
+	}
+}
+
+func BenchmarkLargeStructDecode(b *testing.B) {
+	var doc docType
+	for i := 0; i < b.N; i++ {
+		err := Unmarshal(encodedBson, &doc)
+		if err != nil {
+			panic(err.String())
 		}
 	}
 }
